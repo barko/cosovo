@@ -1,0 +1,3 @@
+<src/csvcat.*>: package(cmdliner) , package(pcre)
+true: bin_annot
+true: annot

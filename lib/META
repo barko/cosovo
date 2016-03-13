@@ -1,0 +1,4 @@
+description = "cosovo - parse csv files"
+version = "1.0"
+archive(byte) = "cosovo.cma"
+archive(native) = "cosovo.cmxa"
