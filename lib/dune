@@ -1,4 +1,4 @@
-(library (name cosovo))
+(library (name cosovo) (public_name cosovo))
 
 (menhir (modules parser))
 (ocamllex lexer)
