@@ -26,13 +26,23 @@ stripping newlines and comments, if any (see `csvcat.native --help`).
 The interface to the package is rather simple:
 ```
 let ch = open_in "myfile.csv" ;;
-let header, get_row = Csv.io_of_channel ch;;
-let first_row = get_row ();;
+let header, row_seq =
+  match Cosovo.IO.of_channel ch with
+  | Ok h_rs -> h_rs
+  | Error _ -> (* parse errors *)
+in
+Seq.iter (
+  function
+  | `Dense dense   -> (* do something with dense row  *)
+  | `Sparse sparse -> (* do something with sparse row *)
+  | _              -> (* errors *)
+) row_seq
+;;
 ```
 
 The type of a row is:
 ```
-type row = [ `Dense of dense | `Sparse of sparse | `EOF ]
+type row = [ `Dense of dense | `Sparse of sparse | ... ]
 ```
 
 where
