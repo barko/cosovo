@@ -20,8 +20,8 @@ a,b,c
 {1000 1,2001 99.9}
 ```
 
-The command-line tool `csvcat.native` validates and echos its input,
-stripping newlines and comments, if any (see `csvcat.native --help`).
+The command-line tool `csvcat` validates and echos its input,
+stripping newlines and comments, if any (see `csvcat --help`).
 
 The interface to the package is rather simple:
 ```
