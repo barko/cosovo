@@ -26,26 +26,26 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type next_row = unit -> [ `Ok of Csv_types.row | error ]
+type next_row = unit -> [ `Ok of Types.row | error ]
 
 let of_channel ~no_header ch =
   let lexbuf = Lexing.from_channel ch in
   try
     let h =
       if not no_header then
-        Csv_parser.header Csv_lexer.header lexbuf
+        Parser.header Lexer.header lexbuf
       else
         []
     in
     let row () =
       try
-        `Ok (Csv_parser.row Csv_lexer.row lexbuf)
+        `Ok (Parser.row Lexer.row lexbuf)
       with
         | Parsing.Parse_error ->
           `SyntaxError (error_location lexbuf)
-        | Csv_lexer.UnterminatedString line ->
+        | Lexer.UnterminatedString line ->
           `UnterminatedString line
-        | Csv_lexer.IntOverflow line_and_offending_string ->
+        | Lexer.IntOverflow line_and_offending_string ->
           `IntOverflow line_and_offending_string
     in
     `Ok (h, row)
@@ -53,19 +53,19 @@ let of_channel ~no_header ch =
   with
     | Parsing.Parse_error ->
       `SyntaxError (error_location lexbuf)
-    | Csv_lexer.UnterminatedString line ->
+    | Lexer.UnterminatedString line ->
       `UnterminatedString line
-    | Csv_lexer.IntOverflow line_and_offending_string ->
+    | Lexer.IntOverflow line_and_offending_string ->
       `IntOverflow line_and_offending_string
 
 let row_of_string string =
   let lexbuf = Lexing.from_string string in
   try
-    `Ok (Csv_parser.row_sans_nl Csv_lexer.row lexbuf)
+    `Ok (Parser.row_sans_nl Lexer.row lexbuf)
   with
     | Parsing.Parse_error ->
       `SyntaxError (error_location lexbuf)
-    | Csv_lexer.UnterminatedString line ->
+    | Lexer.UnterminatedString line ->
       `UnterminatedString line
-    | Csv_lexer.IntOverflow line_and_offending_string ->
+    | Lexer.IntOverflow line_and_offending_string ->
       `IntOverflow line_and_offending_string

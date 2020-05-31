@@ -2,7 +2,7 @@
 
 open Lexing
 open Printf
-open Csv_parser
+open Parser
 
 exception UnterminatedString of int (* line number *)
 
@@ -25,11 +25,11 @@ exception IntOverflow of (int * string)
 (* line number * unparseable string *)
 
 let raise_int_overflow lexbuf ~start ~stop =
-  let huge_int = String.sub lexbuf.lex_buffer start (stop-start) in
+  let huge_int = Bytes.sub_string lexbuf.lex_buffer start (stop-start) in
   raise (IntOverflow (lexbuf.lex_start_p.pos_lnum, huge_int))
 
-let dec c =
-  Char.code c - 48
+let dec code =
+    code - 48
 
 let extract_positive_int lexbuf =
   let start = lexbuf.lex_start_pos in
@@ -40,7 +40,7 @@ let extract_positive_int lexbuf =
     if !n >= max10 then
       raise_int_overflow lexbuf ~start ~stop
     else
-      n := 10 * !n + dec s.[i]
+      n := 10 * !n + dec (Bytes.get_uint8 s i)
   done;
   if !n < 0 then
     raise_int_overflow lexbuf ~start ~stop
@@ -56,7 +56,7 @@ let extract_negative_int lexbuf =
     if !n <= min10 then
       raise_int_overflow lexbuf ~start ~stop
     else
-      n := 10 * !n - dec s.[i]
+      n := 10 * !n - dec (Bytes.get_uint8 s i)
   done;
   if !n > 0 then
     raise_int_overflow lexbuf ~start ~stop

@@ -12,10 +12,10 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type next_row = unit -> [ `Ok of Csv_types.row | error ]
+type next_row = unit -> [ `Ok of Types.row | error ]
 val of_channel : no_header:bool -> in_channel ->
   [ `Ok of string list * next_row | error ]
 
-val row_of_string : string -> [ `Ok of Csv_types.row | error ]
+val row_of_string : string -> [ `Ok of Types.row | error ]
 (* parse a single row of a csv file; the string may have trailing
    comments or newlines. *)

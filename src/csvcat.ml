@@ -1,5 +1,3 @@
-open Printf
-
 (* apply [f] to each element of the input list, calling [sep]
    inbetween such elements *)
 let rec iter_sep f sep = function
@@ -95,7 +93,7 @@ let pr_sparse_subset_row out row column_included =
 
 type incl_excl_spec = {
   start_with : [ `All | `None ] ;
-  commands : ([`Include | `Exclude ] * Pcre.regexp) list
+  commands : ([`Include | `Exclude ] * Re.Pcre.regexp) list
 }
 
 type column = int * string (* a column's name with its 0-based index *)
@@ -103,7 +101,7 @@ type column = int * string (* a column's name with its 0-based index *)
 module ColumnSet = Set.Make(
   struct
     type t = column
-    let compare = Pervasives.compare
+    let compare = Stdlib.compare
   end
   )
 
@@ -116,7 +114,7 @@ let rec apply_commands incl_excl_sets = function
       fun element incl_excl_sets ->
         let included_set, excluded_set = incl_excl_sets in
         let _, column_name = element in
-        if Pcre.pmatch ~rex column_name then
+        if Re.Pcre.pmatch ~rex column_name then
           ColumnSet.add element included_set,
           ColumnSet.remove element excluded_set
         else
@@ -132,7 +130,7 @@ let rec apply_commands incl_excl_sets = function
       fun element incl_excl_sets ->
         let included_set, excluded_set = incl_excl_sets in
         let _, column_name = element in
-        if Pcre.pmatch ~rex column_name then
+        if Re.Pcre.pmatch ~rex column_name then
           ColumnSet.remove element included_set,
           ColumnSet.add element excluded_set
         else
@@ -145,11 +143,11 @@ let rec apply_commands incl_excl_sets = function
 
 let rec parse_commands accu = function
   | "i" :: regexp :: rest ->
-    let accu = (`Include, Pcre.regexp regexp) :: accu in
+    let accu = (`Include, Re.Pcre.regexp regexp) :: accu in
     parse_commands accu rest
 
   | "x" :: regexp :: rest ->
-    let accu = (`Exclude, Pcre.regexp regexp) :: accu in
+    let accu = (`Exclude, Re.Pcre.regexp regexp) :: accu in
     parse_commands accu rest
 
   | [] ->
@@ -204,7 +202,7 @@ let included_columns_of_spec header incl_excl_spec_as_list =
 let rec loop_subset_of_columns is_included next_row out =
   match next_row () with
     | `SyntaxError err ->
-      print_endline (Csv_io.string_of_error_location err);
+      print_endline (Cosovo.IO.string_of_error_location err);
       exit 1
 
     | `UnterminatedString line ->
@@ -230,7 +228,7 @@ let rec loop_subset_of_columns is_included next_row out =
 let rec loop_all_columns next_row out =
   match next_row () with
     | `SyntaxError err ->
-      print_endline (Csv_io.string_of_error_location err);
+      print_endline (Cosovo.IO.string_of_error_location err);
       exit 1
 
     | `UnterminatedString line ->
@@ -268,9 +266,9 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
 
   let out = output_string ouch in
 
-  match Csv_io.of_channel ~no_header inch with
+  match Cosovo.IO.of_channel ~no_header inch with
     | `SyntaxError err ->
-      print_endline (Csv_io.string_of_error_location err);
+      print_endline (Cosovo.IO.string_of_error_location err);
       exit 1
 
     | `UnterminatedString line ->

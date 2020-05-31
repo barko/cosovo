@@ -19,8 +19,8 @@
 %start row_sans_nl
 
 %type <string list> header
-%type <Csv_types.row> row
-%type <Csv_types.row> row_sans_nl
+%type <Types.row> row
+%type <Types.row> row_sans_nl
 
 %%
 
@@ -63,7 +63,7 @@ row_sans_nl:
 | sparse_row COMMENT { `Sparse $1 }
 
 dense_row:
-| values { Csv_types.parse_opt_row $1 }
+| values { Types.parse_opt_row $1 }
 
 sparse_row:
 | LCURLY pairs RCURLY { $2 }
