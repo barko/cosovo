@@ -12,9 +12,9 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type next_row = unit -> [ `Ok of Types.row | error ]
+type row_seq = [ `Sparse of Types.sparse | `Dense of Types.dense | error ] Seq.t
 val of_channel : no_header:bool -> in_channel ->
-  [ `Ok of string list * next_row | error ]
+  (string list * row_seq, error) result
 
 val row_of_string : string -> [ `Ok of Types.row | error ]
 (* parse a single row of a csv file; the string may have trailing

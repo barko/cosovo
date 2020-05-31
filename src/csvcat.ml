@@ -199,56 +199,46 @@ let included_columns_of_spec header incl_excl_spec_as_list =
   ) included_set;
   is_included
 
-let rec loop_subset_of_columns is_included next_row out =
-  match next_row () with
-    | `SyntaxError err ->
-      print_endline (Cosovo.IO.string_of_error_location err);
-      exit 1
+let pr_subset_of_columns is_included out = function
+  | `SyntaxError err ->
+    print_endline (Cosovo.IO.string_of_error_location err);
+    exit 1
 
-    | `UnterminatedString line ->
-      Printf.printf "unterminated quote on line %d\n%!" line;
-      exit 1
+  | `UnterminatedString line ->
+    Printf.printf "unterminated quote on line %d\n%!" line;
+    exit 1
 
-    | `IntOverflow (line, offending_string) ->
-      Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-        offending_string line;
-      exit 1
+  | `IntOverflow (line, offending_string) ->
+    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
+      offending_string line;
+    exit 1
 
-    | `Ok `EOF -> ()
+  | `Dense dense ->
+    pr_dense_subset_row out dense is_included
 
-    | `Ok `Dense dense ->
-      pr_dense_subset_row out dense is_included;
-      loop_subset_of_columns is_included next_row out
-
-    | `Ok `Sparse sparse ->
-      pr_sparse_subset_row out sparse is_included;
-      loop_subset_of_columns is_included next_row out
+  | `Sparse sparse ->
+    pr_sparse_subset_row out sparse is_included
 
 
-let rec loop_all_columns next_row out =
-  match next_row () with
-    | `SyntaxError err ->
-      print_endline (Cosovo.IO.string_of_error_location err);
-      exit 1
+let pr_columns out = function
+  | `SyntaxError err ->
+    print_endline (Cosovo.IO.string_of_error_location err);
+    exit 1
 
-    | `UnterminatedString line ->
-      Printf.printf "unterminated quote on line %d\n%!" line;
-      exit 1
+  | `UnterminatedString line ->
+    Printf.printf "unterminated quote on line %d\n%!" line;
+    exit 1
 
-    | `IntOverflow (line, offending_string) ->
-      Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-        offending_string line;
-      exit 1
+  | `IntOverflow (line, offending_string) ->
+    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
+      offending_string line;
+    exit 1
 
-    | `Ok `EOF -> ()
+  | `Dense dense ->
+    pr_dense_row out dense
 
-    | `Ok `Dense dense ->
-      pr_dense_row out dense;
-      loop_all_columns next_row out
-
-    | `Ok `Sparse sparse ->
-      pr_sparse_row out sparse;
-      loop_all_columns next_row out
+  | `Sparse sparse ->
+    pr_sparse_row out sparse
 
 
 let main input_path output_path incl_excl_spec_as_list header_only no_header =
@@ -267,20 +257,20 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
   let out = output_string ouch in
 
   match Cosovo.IO.of_channel ~no_header inch with
-    | `SyntaxError err ->
+    | Error (`SyntaxError err) ->
       print_endline (Cosovo.IO.string_of_error_location err);
       exit 1
 
-    | `UnterminatedString line ->
+    | Error (`UnterminatedString line) ->
       Printf.printf "unterminated quote on line %d\n%!" line;
       exit 1
 
-    | `IntOverflow (line, offending_string) ->
+    | Error (`IntOverflow (line, offending_string)) ->
       Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
         offending_string line;
       exit 1
 
-    | `Ok (header, next_row) ->
+    | Ok (header, seq) ->
 
       match incl_excl_spec_as_list with
         | [] ->
@@ -289,7 +279,7 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
             pr_strings ~sep:"\n" out header
           else (
             pr_strings out header;
-            loop_all_columns next_row out
+            Seq.iter (pr_columns out) seq
           )
 
         | _ ->
@@ -320,7 +310,7 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
           out "\n";
 
           if not header_only then
-            loop_subset_of_columns is_column_included next_row out
+            Seq.iter (pr_subset_of_columns is_column_included out) seq
 
 
 open Cmdliner

@@ -26,7 +26,7 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type next_row = unit -> [ `Ok of Types.row | error ]
+type row_seq = [ `Sparse of Types.sparse | `Dense of Types.dense | error ] Seq.t
 
 let of_channel ~no_header ch =
   let lexbuf = Lexing.from_channel ch in
@@ -37,26 +37,30 @@ let of_channel ~no_header ch =
       else
         []
     in
-    let row () =
+    let open Seq in
+    let rec row () =
       try
-        `Ok (Parser.row Lexer.row lexbuf)
+        match Parser.row Lexer.row lexbuf with
+        | `EOF -> Nil
+        | `Dense d -> Cons (`Dense d, row)
+        | `Sparse s -> Cons (`Sparse s, row)
       with
         | Parsing.Parse_error ->
-          `SyntaxError (error_location lexbuf)
+          Cons (`SyntaxError (error_location lexbuf), fun () -> Nil)
         | Lexer.UnterminatedString line ->
-          `UnterminatedString line
+          Cons (`UnterminatedString line, fun () -> Nil)
         | Lexer.IntOverflow line_and_offending_string ->
-          `IntOverflow line_and_offending_string
+          Cons (`IntOverflow line_and_offending_string, fun () -> Nil)
     in
-    `Ok (h, row)
+    Ok (h, row)
 
   with
     | Parsing.Parse_error ->
-      `SyntaxError (error_location lexbuf)
+      Error (`SyntaxError (error_location lexbuf))
     | Lexer.UnterminatedString line ->
-      `UnterminatedString line
+      Error (`UnterminatedString line)
     | Lexer.IntOverflow line_and_offending_string ->
-      `IntOverflow line_and_offending_string
+      Error (`IntOverflow line_and_offending_string)
 
 let row_of_string string =
   let lexbuf = Lexing.from_string string in

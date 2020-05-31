@@ -52,5 +52,6 @@ data row or a header.
 
 To install:
 ```
-make all; make install
+opam pin add cosovo git://github.com/barko/cosovo.git
+opam install cosovo
 ```
