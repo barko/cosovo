@@ -14,7 +14,7 @@ depends: [
 ]
 build: [
   ["dune" "subst"] {pinned}
-  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "build" "@install" "-p" name "-j" jobs]
 ]
 
 dev-repo: "git+https://github.com/barko/cosovo.git"
