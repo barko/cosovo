@@ -199,45 +199,28 @@ let included_columns_of_spec header incl_excl_spec_as_list =
   ) included_set;
   is_included
 
-let pr_subset_of_columns is_included out = function
-  | `SyntaxError err ->
-    print_endline (Cosovo.IO.string_of_error_location err);
-    exit 1
+let pr_subset_of_columns : bool array -> (string -> unit) -> Cosovo.IO.row -> unit =
+  fun is_included out -> function
+    | Ok (`Dense dense) ->
+      pr_dense_subset_row out dense is_included
 
-  | `UnterminatedString line ->
-    Printf.printf "unterminated quote on line %d\n%!" line;
-    exit 1
+    | Ok (`Sparse sparse) ->
+      pr_sparse_subset_row out sparse is_included
 
-  | `IntOverflow (line, offending_string) ->
-    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-      offending_string line;
-    exit 1
-
-  | `Dense dense ->
-    pr_dense_subset_row out dense is_included
-
-  | `Sparse sparse ->
-    pr_sparse_subset_row out sparse is_included
+    | Error err ->
+      print_endline (Cosovo.IO.string_of_error err);
+      exit 1
 
 
 let pr_columns out = function
-  | `SyntaxError err ->
-    print_endline (Cosovo.IO.string_of_error_location err);
+  | Error err ->
+    print_endline (Cosovo.IO.string_of_error err);
     exit 1
 
-  | `UnterminatedString line ->
-    Printf.printf "unterminated quote on line %d\n%!" line;
-    exit 1
-
-  | `IntOverflow (line, offending_string) ->
-    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-      offending_string line;
-    exit 1
-
-  | `Dense dense ->
+  | Ok (`Dense dense) ->
     pr_dense_row out dense
 
-  | `Sparse sparse ->
+  | Ok (`Sparse sparse) ->
     pr_sparse_row out sparse
 
 

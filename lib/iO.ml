@@ -26,7 +26,20 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type row_seq = [ `Sparse of Types.sparse | `Dense of Types.dense | error ] Seq.t
+type row = ([`Sparse of Types.sparse | `Dense of Types.dense ], error) result
+
+let string_of_error = function
+  | `SyntaxError err ->
+    Printf.sprintf "syntax error: %s" (string_of_error_location err)
+
+  | `UnterminatedString line ->
+    Printf.sprintf "unterminated string on line %d" line
+
+  | `IntOverflow (line, offending_string) ->
+    Printf.sprintf "value %S on line %d cannot be represented as an integer"
+      offending_string line
+
+type row_seq = row Seq.t
 
 let of_channel ~no_header ch =
   let lexbuf = Lexing.from_channel ch in
@@ -42,15 +55,15 @@ let of_channel ~no_header ch =
       try
         match Parser.row Lexer.row lexbuf with
         | `EOF -> Nil
-        | `Dense d -> Cons (`Dense d, row)
-        | `Sparse s -> Cons (`Sparse s, row)
+        | `Dense d -> Cons (Ok (`Dense d), row)
+        | `Sparse s -> Cons (Ok (`Sparse s), row)
       with
         | Parsing.Parse_error ->
-          Cons (`SyntaxError (error_location lexbuf), fun () -> Nil)
+          Cons (Error (`SyntaxError (error_location lexbuf)), fun () -> Nil)
         | Lexer.UnterminatedString line ->
-          Cons (`UnterminatedString line, fun () -> Nil)
+          Cons (Error (`UnterminatedString line), fun () -> Nil)
         | Lexer.IntOverflow line_and_offending_string ->
-          Cons (`IntOverflow line_and_offending_string, fun () -> Nil)
+          Cons (Error (`IntOverflow line_and_offending_string), fun () -> Nil)
     in
     Ok (h, row)
 

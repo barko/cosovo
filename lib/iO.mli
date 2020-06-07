@@ -12,7 +12,11 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type row_seq = [ `Sparse of Types.sparse | `Dense of Types.dense | error ] Seq.t
+val string_of_error : error -> string
+
+type row = ([`Sparse of Types.sparse | `Dense of Types.dense ], error) result
+
+type row_seq = row Seq.t
 val of_channel : no_header:bool -> in_channel ->
   (string list * row_seq, error) result
 
