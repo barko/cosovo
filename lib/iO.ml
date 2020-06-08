@@ -26,7 +26,12 @@ type error = [
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
-type row = ([`Sparse of Types.sparse | `Dense of Types.dense ], error) result
+type value = [ `Int of int | `Float of float | `String of string ]
+type dense = value list
+type sparse = (int * value) list
+
+type row = ([`Sparse of sparse | `Dense of dense ], error) result
+type header = [`Sparse of (int * string) list | `Dense of string list]
 
 let string_of_error = function
   | `SyntaxError err ->
@@ -48,7 +53,7 @@ let of_channel ~no_header ch =
       if not no_header then
         Parser.header Lexer.header lexbuf
       else
-        []
+        None
     in
     let open Seq in
     let rec row () =

@@ -18,20 +18,39 @@
 %start row
 %start row_sans_nl
 
-%type <string list> header
+%type <Types.header option> header
 %type <Types.row> row
 %type <Types.row> row_sans_nl
 
 %%
 
 header:
-| strings EOL { $1 }
-| strings COMMENT EOL { $1 }
-| newlines strings EOL { $2 }
-| newlines strings COMMENT EOL { $2 }
+| header_sans_nl EOL { $1 }
+| header_sans_nl COMMENT EOL { $1 }
+| newlines header_sans_nl EOL { $2 }
+| newlines header_sans_nl COMMENT EOL { $2 }
+| newlines EOF { None }
+| EOF { None }
 
-strings:
-| STRING COMMA strings { $1 :: $3 }
+header_sans_nl:
+| dense_header { Some (`Dense $1) }
+| sparse_header { Some (`Sparse $1) }
+| dense_header COMMENT { Some (`Dense $1) }
+| sparse_header COMMENT { Some (`Sparse $1) }
+
+sparse_header:
+| LCURLY is_pairs RCURLY { $2 }
+| LCURLY RCURLY { [] }
+
+is_pairs:
+| is_pair COMMA is_pairs { $1 :: $3 }
+| is_pair { [ $1 ] }
+
+is_pair:
+| POS_INT STRING { $1, $2 }
+
+dense_header:
+| STRING COMMA dense_header { $1 :: $3 }
 | STRING { [ $1 ] }
 
 value:

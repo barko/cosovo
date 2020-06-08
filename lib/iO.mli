@@ -14,11 +14,16 @@ type error = [
 
 val string_of_error : error -> string
 
-type row = ([`Sparse of Types.sparse | `Dense of Types.dense ], error) result
+type value = [ `Int of int | `Float of float | `String of string ]
+type dense = value list
+type sparse = (int * value) list
+
+type row = ([`Sparse of sparse | `Dense of dense ], error) result
+type header = [`Sparse of (int * string) list | `Dense of string list]
 
 type row_seq = row Seq.t
 val of_channel : no_header:bool -> in_channel ->
-  (string list * row_seq, error) result
+  (header option * row_seq, error) result
 
 val row_of_string : string -> [ `Ok of Types.row | error ]
 (* parse a single row of a csv file; the string may have trailing

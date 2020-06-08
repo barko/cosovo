@@ -12,21 +12,6 @@ let rec iter_sep f sep = function
   | [] ->
       ()
 
-let rec iteri f i has_prev = function
-  | a :: b :: rest ->
-      let has_prev = f i has_prev a in
-      iteri f (i+1) has_prev (b :: rest)
-
-  | [ a ] ->
-      ignore (f i has_prev a)
-
-  | [] ->
-      ()
-
-let iteri f list =
-  iteri f 0 false list
-
-
 let string_of_value = function
   | `Int i -> string_of_int i
   | `Float f -> string_of_float f
@@ -53,28 +38,26 @@ let pr_sparse_row out pairs =
 
 
 let pr_dense_subset_row out row column_included =
-  iteri (
-    fun index has_prev value ->
-      if column_included.(index) then (
+  let _ = List.fold_left (
+    fun (has_prev, index) value ->
+      if column_included index then (
         if has_prev then
           out ",";
 
         out (string_of_value value);
-        true
+        true, index + 1
       )
       else
-        has_prev
-  ) row;
+        has_prev, index + 1
+  ) (false, 0) row in
   out "\n"
 
 
 let pr_sparse_subset_row out row column_included =
   out "{";
-
-  (* TODO: optinally print out default values, if they are included *)
-  iteri (
-    fun _ has_prev (index, value) ->
-      if column_included.(index) then (
+  let _ = List.fold_left (
+    fun has_prev (index, value) ->
+      if column_included index then (
         if has_prev then
           out ",";
 
@@ -86,8 +69,7 @@ let pr_sparse_subset_row out row column_included =
       else
         has_prev
 
-  ) row;
-
+  ) false row in
   out "}\n"
 
 
@@ -179,16 +161,28 @@ let parse_incl_excl_spec = function
       (to start with all columns) or \"none\" to start with no columns.";
     exit 1
 
+let column_set_of_header = function
+  | `Sparse header ->
+    let num_columns, set = List.fold_left (
+      fun (num_columns, set) (i, name) ->
+        let num_columns = max i num_columns in
+        num_columns, ColumnSet.add (i, name) set
+    ) (0, ColumnSet.empty) header in
+    num_columns + 1, set
+
+  | `Dense header ->
+    List.fold_left (
+      fun (i, set) name ->
+        i + 1, ColumnSet.add (i, name) set
+    ) (0, ColumnSet.empty) header
+
 let included_columns_of_spec header incl_excl_spec_as_list =
   let incl_excl_spec = parse_incl_excl_spec incl_excl_spec_as_list in
-  let num_columns, column_set = List.fold_left (
-      fun (column_index, column_set) column_name ->
-        column_index + 1, ColumnSet.add (column_index, column_name) column_set
-    ) (0, ColumnSet.empty) header in
+  let num_columns, column_set = column_set_of_header header in
   let incl_excl_set =
     match incl_excl_spec.start_with with
-      | `All -> column_set, ColumnSet.empty
-      | `None -> ColumnSet.empty, column_set
+    | `All -> column_set, ColumnSet.empty
+    | `None -> ColumnSet.empty, column_set
   in
   let included_set, _excluded_set =
     apply_commands incl_excl_set incl_excl_spec.commands in
@@ -197,9 +191,9 @@ let included_columns_of_spec header incl_excl_spec_as_list =
     fun (index, _) ->
       is_included.(index) <- true
   ) included_set;
-  is_included
+  Array.get is_included
 
-let pr_subset_of_columns : bool array -> (string -> unit) -> Cosovo.IO.row -> unit =
+let pr_subset_of_columns : (int -> bool) -> (string -> unit) -> Cosovo.IO.row -> unit =
   fun is_included out -> function
     | Ok (`Dense dense) ->
       pr_dense_subset_row out dense is_included
@@ -227,61 +221,73 @@ let pr_columns out = function
 let main input_path output_path incl_excl_spec_as_list header_only no_header =
   let inch =
     match input_path with
-      | None -> stdin
-      | Some path -> open_in path
+    | None -> stdin
+    | Some path -> open_in path
   in
 
   let ouch =
     match output_path with
-      | None -> stdout
-      | Some path -> open_out path
+    | None -> stdout
+    | Some path -> open_out path
   in
 
   let out = output_string ouch in
 
   match Cosovo.IO.of_channel ~no_header inch with
-    | Error (`SyntaxError err) ->
-      print_endline (Cosovo.IO.string_of_error_location err);
-      exit 1
+  | Error (`SyntaxError err) ->
+    print_endline (Cosovo.IO.string_of_error_location err);
+    exit 1
 
-    | Error (`UnterminatedString line) ->
-      Printf.printf "unterminated quote on line %d\n%!" line;
-      exit 1
+  | Error (`UnterminatedString line) ->
+    Printf.printf "unterminated quote on line %d\n%!" line;
+    exit 1
 
-    | Error (`IntOverflow (line, offending_string)) ->
-      Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-        offending_string line;
-      exit 1
+  | Error (`IntOverflow (line, offending_string)) ->
+    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
+      offending_string line;
+    exit 1
 
-    | Ok (header, seq) ->
+  | Ok (header_opt, seq) ->
 
-      match incl_excl_spec_as_list with
-        | [] ->
-          (* no spec: echo every column *)
-          if header_only then
-            pr_strings ~sep:"\n" out header
-          else (
-            pr_strings out header;
-            Seq.iter (pr_columns out) seq
-          )
+    let is_column_included =
+      match incl_excl_spec_as_list, header_opt with
+      | _ :: _, Some header ->
+        included_columns_of_spec header incl_excl_spec_as_list
+      | _, _ ->
+        fun _ -> true
+    in
 
-        | _ ->
-          (* have spec: analyze it, and render only the desired
-             columns *)
-          let is_column_included =
-            included_columns_of_spec header incl_excl_spec_as_list in
+    let header_sep =
+      if header_only then
+        "\n"
+      else
+        ","
+    in
 
-          let header_sep =
-            if header_only then
-              "\n"
-            else
-              ","
-          in
+    (* print header *)
+    (
+      (
+        match header_opt with
+        | None -> ()
+        | Some (`Dense dense) ->
 
-          (* print subset of header *)
-          iteri (
-            fun index has_prev column_name ->
-              if is_column_included.(index) then (
+          let _ = List.fold_left (
+            fun (has_prev, j) column_name ->
+              if is_column_included j then (
+                if has_prev then
+                  out header_sep;
+                out column_name;
+                true, j + 1
+              )
+              else
+                has_prev, j + 1
+          ) (false, 0) dense in
+          ()
+
+        | Some (`Sparse sparse) ->
+          let _ = List.fold_left (
+            fun has_prev (j, column_name) ->
+              if is_column_included j then (
                 if has_prev then
                   out header_sep;
                 out column_name;
@@ -289,11 +295,14 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
               )
               else
                 has_prev
-          ) header;
-          out "\n";
+          ) false sparse in
+          ()
+      );
+      out "\n"
+    );
 
-          if not header_only then
-            Seq.iter (pr_subset_of_columns is_column_included out) seq
+    if not header_only then
+      Seq.iter (pr_subset_of_columns is_column_included out) seq
 
 
 open Cmdliner
