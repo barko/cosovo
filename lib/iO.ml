@@ -63,7 +63,7 @@ let of_channel ~no_header ch =
         | `Dense d -> Cons (Ok (`Dense d), row)
         | `Sparse s -> Cons (Ok (`Sparse s), row)
       with
-        | Parsing.Parse_error ->
+        | Parser.Error ->
           Cons (Error (`SyntaxError (error_location lexbuf)), fun () -> Nil)
         | Lexer.UnterminatedString line ->
           Cons (Error (`UnterminatedString line), fun () -> Nil)
@@ -73,12 +73,13 @@ let of_channel ~no_header ch =
     Ok (h, row)
 
   with
-    | Parsing.Parse_error ->
+    | Parser.Error ->
       Error (`SyntaxError (error_location lexbuf))
     | Lexer.UnterminatedString line ->
       Error (`UnterminatedString line)
     | Lexer.IntOverflow line_and_offending_string ->
       Error (`IntOverflow line_and_offending_string)
+
 
 let row_of_string string =
   let lexbuf = Lexing.from_string string in

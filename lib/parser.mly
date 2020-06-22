@@ -59,13 +59,9 @@ value:
 | FLOAT { (`Float $1) }
 | STRING { (`String $1) }
 
-value_opt:
-| value { Some $1}
-| { None }
-
 values:
-| value_opt COMMA values { $1 :: $3 }
-| value_opt { [ $1 ] }
+| value COMMA values { $1 :: $3 }
+| value { [ $1 ] }
 
 row:
 | row_sans_nl EOL { $1 }
@@ -82,7 +78,7 @@ row_sans_nl:
 | sparse_row COMMENT { `Sparse $1 }
 
 dense_row:
-| values { Types.parse_opt_row $1 }
+| values { `Dense $1 }
 
 sparse_row:
 | LCURLY pairs RCURLY { $2 }
