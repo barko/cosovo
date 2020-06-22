@@ -60,8 +60,7 @@ associated with the 2002-th column in the last row is `99.9` .
 It is up to the user as to whether to interpret the first row as a
 data row or a header.
 
-To install:
+To install, use opam:
 ```
-opam pin add cosovo git://github.com/barko/cosovo.git
 opam install cosovo
 ```
