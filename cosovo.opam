@@ -6,6 +6,7 @@ maintainer: ["mika@illouz.net"]
 authors: ["Mika Illouz"]
 license: "BSD"
 homepage: "https://github.com/barko/cosovo"
+doc: "https://github.com/barko/cosovo"
 bug-reports: "https://github.com/barko/cosovo/issues"
 depends: [
   "dune" {> "1.5"}
