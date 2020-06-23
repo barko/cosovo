@@ -30,7 +30,8 @@ type value = [ `Int of int | `Float of float | `String of string ]
 type dense = value list
 type sparse = (int * value) list
 
-type row = ([`Sparse of sparse | `Dense of dense ], error) result
+type row = [`Sparse of sparse | `Dense of dense ]
+type row_or_error = (row, error) result
 type header = [`Sparse of (int * string) list | `Dense of string list]
 
 let string_of_error = function
@@ -44,7 +45,7 @@ let string_of_error = function
     Printf.sprintf "value %S on line %d cannot be represented as an integer"
       offending_string line
 
-type row_seq = row Seq.t
+type row_seq = row_or_error Seq.t
 
 let of_channel ~no_header ch =
   let lexbuf = Lexing.from_channel ch in
@@ -84,11 +85,14 @@ let of_channel ~no_header ch =
 let row_of_string string =
   let lexbuf = Lexing.from_string string in
   try
-    `Ok (Parser.row_sans_nl Lexer.row lexbuf)
+    match Parser.row_sans_nl Lexer.row lexbuf with
+    | `EOF -> Error `EOF
+    | `Sparse sparse -> Ok (`Sparse sparse)
+    | `Dense dense -> Ok (`Dense dense)
   with
-    | Parsing.Parse_error ->
-      `SyntaxError (error_location lexbuf)
-    | Lexer.UnterminatedString line ->
-      `UnterminatedString line
-    | Lexer.IntOverflow line_and_offending_string ->
-      `IntOverflow line_and_offending_string
+  | Parsing.Parse_error ->
+    Error (`SyntaxError (error_location lexbuf))
+  | Lexer.UnterminatedString line ->
+    Error (`UnterminatedString line)
+  | Lexer.IntOverflow line_and_offending_string ->
+    Error (`IntOverflow line_and_offending_string)

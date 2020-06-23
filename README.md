@@ -33,16 +33,16 @@ let header, row_seq =
 in
 Seq.iter (
   function
-  | `Dense dense   -> (* do something with dense row  *)
-  | `Sparse sparse -> (* do something with sparse row *)
-  | _              -> (* errors *)
+  | Ok (`Dense dense)   -> (* do something with dense row  *)
+  | Ok (`Sparse sparse) -> (* do something with sparse row *)
+  | Error _             -> (* errors *)
 ) row_seq
 ;;
 ```
 
 The type of a row is:
 ```
-type row = [ `Dense of dense | `Sparse of sparse | ... ]
+type row = [ `Dense of dense | `Sparse of sparse ]
 ```
 
 where

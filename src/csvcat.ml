@@ -193,7 +193,7 @@ let included_columns_of_spec header incl_excl_spec_as_list =
   ) included_set;
   Array.get is_included
 
-let pr_subset_of_columns : (int -> bool) -> (string -> unit) -> Cosovo.IO.row -> unit =
+let pr_subset_of_columns : (int -> bool) -> (string -> unit) -> Cosovo.IO.row_or_error -> unit =
   fun is_included out -> function
     | Ok (`Dense dense) ->
       pr_dense_subset_row out dense is_included

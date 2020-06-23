@@ -18,13 +18,14 @@ type value = [ `Int of int | `Float of float | `String of string ]
 type dense = value list
 type sparse = (int * value) list
 
-type row = ([`Sparse of sparse | `Dense of dense ], error) result
+type row = [`Sparse of sparse | `Dense of dense ]
+type row_or_error = (row, error) result
 type header = [`Sparse of (int * string) list | `Dense of string list]
 
-type row_seq = row Seq.t
+type row_seq = row_or_error Seq.t
 val of_channel : no_header:bool -> in_channel ->
   (header option * row_seq, error) result
 
-val row_of_string : string -> [ `Ok of Types.row | error ]
+val row_of_string : string -> (row, [ error | `EOF ] ) result
 (* parse a single row of a csv file; the string may have trailing
    comments or newlines. *)
