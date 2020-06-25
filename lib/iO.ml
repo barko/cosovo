@@ -90,7 +90,7 @@ let row_of_string string =
     | `Sparse sparse -> Ok (`Sparse sparse)
     | `Dense dense -> Ok (`Dense dense)
   with
-  | Parsing.Parse_error ->
+  | Parser.Error ->
     Error (`SyntaxError (error_location lexbuf))
   | Lexer.UnterminatedString line ->
     Error (`UnterminatedString line)
