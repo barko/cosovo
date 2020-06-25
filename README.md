@@ -1,5 +1,7 @@
+# Cosovo
+
 Cosovo is an OCaml package, providing a CSV parser.  Cosovo's parser
-includes support for
+includes support for:
 
  * sparse rows
  * header and header-less inputs
@@ -24,8 +26,8 @@ The command-line tool `csvcat` validates and echos its input,
 stripping newlines and comments, if any (see `csvcat --help`).
 
 The interface to the package is rather simple:
-```
-let ch = open_in "myfile.csv" ;;
+```ocaml
+let ch = open_in "myfile.csv" in
 let header, row_seq =
   match Cosovo.IO.of_channel ch with
   | Ok h_rs -> h_rs
@@ -41,13 +43,12 @@ Seq.iter (
 ```
 
 The type of a row is:
-```
+```ocaml
 type row = [ `Dense of dense | `Sparse of sparse ]
 ```
 
 where
-
-```
+```ocaml
 type value = [ `Int of int | `Float of float | `String of string ]
 type dense = value list
 type sparse = (int * value) list
@@ -61,6 +62,15 @@ It is up to the user as to whether to interpret the first row as a
 data row or a header.
 
 To install, use opam:
-```
+```sh
 opam install cosovo
 ```
+
+# Documentation
+
+See https://barko.github.io/cosovo
+
+# License
+
+BSD
+
