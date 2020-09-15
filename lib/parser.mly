@@ -61,7 +61,10 @@ value:
 
 values:
 | value COMMA values { $1 :: $3 }
+| COMMA values { (`String "") :: $2 }
+| value COMMA { [ $1; `String "" ] }
 | value { [ $1 ] }
+| COMMA { [`String ""; `String ""] }
 
 row:
 | row_sans_nl EOL { $1 }
