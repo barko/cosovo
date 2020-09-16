@@ -211,6 +211,30 @@ and escaped_char = parse
   | 'n'
       { newline lexbuf; "\n" }
 
+and simple_row = parse
+  | eof
+      { EOF }
+
+  | "\n"
+      { newline lexbuf; EOL }
+
+  (* skip whitespace *)
+  | [  ' ' '\b' '\t' '\r' '\012' ]+
+      { row lexbuf }
+
+  | ","
+      { COMMA  }
+
+  | '"'
+      { STRING (double_quoted_string [] lexbuf) }
+
+  | '\''
+      { STRING (single_quoted_string [] lexbuf) }
+
+  (* unquoted string *)
+  | [^ '\b' '\t' '\r' '\n' '\012' ',' '}' '{' '"' '\'' ]+
+      { STRING (lexeme lexbuf) }
+
 
 {
   let string_of_tok = function

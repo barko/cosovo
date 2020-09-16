@@ -12,65 +12,12 @@ let rec iter_sep f sep = function
   | [] ->
       ()
 
-let string_of_value = function
-  | `Int i -> string_of_int i
-  | `Float f -> string_of_float f
-  | `String s -> "\"" ^ s ^ "\""
+let quote_string s =
+  Printf.sprintf "%S" s
 
 let pr_strings ?(sep=",") out strings =
   out (String.concat sep strings);
   out "\n"
-
-let pr_dense_row out row =
-  iter_sep (fun v -> print_string (string_of_value v))
-    (fun () -> out ",") row;
-  out "\n"
-
-let pr_sparse_row out pairs =
-  out "{";
-  iter_sep (
-    fun (feature_id, v) ->
-      out (string_of_int feature_id);
-      out " ";
-      out (string_of_value v)
-  ) (fun () -> out ",") pairs;
-  out "}\n"
-
-
-let pr_dense_subset_row out row column_included =
-  let _ = List.fold_left (
-    fun (has_prev, index) value ->
-      if column_included index then (
-        if has_prev then
-          out ",";
-
-        out (string_of_value value);
-        true, index + 1
-      )
-      else
-        has_prev, index + 1
-  ) (false, 0) row in
-  out "\n"
-
-
-let pr_sparse_subset_row out row column_included =
-  out "{";
-  let _ = List.fold_left (
-    fun has_prev (index, value) ->
-      if column_included index then (
-        if has_prev then
-          out ",";
-
-        out (string_of_int index);
-        out " ";
-        out (string_of_value value);
-        true
-      )
-      else
-        has_prev
-
-  ) false row in
-  out "}\n"
 
 
 type incl_excl_spec = {
@@ -161,24 +108,15 @@ let parse_incl_excl_spec = function
       (to start with all columns) or \"none\" to start with no columns.";
     exit 1
 
-let column_set_of_header = function
-  | `Sparse header ->
-    let num_columns, set = List.fold_left (
-      fun (num_columns, set) (i, name) ->
-        let num_columns = max i num_columns in
-        num_columns, ColumnSet.add (i, name) set
-    ) (0, ColumnSet.empty) header in
-    num_columns + 1, set
+let column_set_of_dense_header header =
+  List.fold_left (
+    fun (i, set) name ->
+      i + 1, ColumnSet.add (i, name) set
+  ) (0, ColumnSet.empty) header
 
-  | `Dense header ->
-    List.fold_left (
-      fun (i, set) name ->
-        i + 1, ColumnSet.add (i, name) set
-    ) (0, ColumnSet.empty) header
 
-let included_columns_of_spec header incl_excl_spec_as_list =
+let included_columns_of_spec num_columns column_set incl_excl_spec_as_list =
   let incl_excl_spec = parse_incl_excl_spec incl_excl_spec_as_list in
-  let num_columns, column_set = column_set_of_header header in
   let incl_excl_set =
     match incl_excl_spec.start_with with
     | `All -> column_set, ColumnSet.empty
@@ -193,79 +131,229 @@ let included_columns_of_spec header incl_excl_spec_as_list =
   ) included_set;
   Array.get is_included
 
-let pr_subset_of_columns : (int -> bool) -> (string -> unit) -> Cosovo.IO.row_or_error -> unit =
-  fun is_included out -> function
-    | Ok (`Dense dense) ->
-      pr_dense_subset_row out dense is_included
 
-    | Ok (`Sparse sparse) ->
-      pr_sparse_subset_row out sparse is_included
+module Simple = struct
 
-    | Error err ->
-      print_endline (Cosovo.IO.string_of_error err);
+  let pr_subset_of_columns : (int -> bool) -> (string -> unit) ->
+    Cosovo.IO.simple_row_or_error -> unit =
+    fun column_included out -> function
+      | Ok row ->
+        let _ = List.fold_left (
+          fun (has_prev, index) value ->
+            if column_included index then (
+              if has_prev then
+                out ",";
+
+              out (quote_string value);
+              true, index + 1
+            )
+            else
+              has_prev, index + 1
+        ) (false, 0) row in
+        out "\n"
+
+      | Error err ->
+        print_endline (Cosovo.IO.string_of_simple_error err);
+        exit 1
+
+  let run input_path output_path incl_excl_spec_as_list header_only no_header =
+    let inch =
+      match input_path with
+      | None -> stdin
+      | Some path -> open_in path
+    in
+
+    let ouch =
+      match output_path with
+      | None -> stdout
+      | Some path -> open_out path
+    in
+
+    let out = output_string ouch in
+
+    match Cosovo.IO.simple_of_channel ~no_header inch with
+    | Error (`SyntaxError err) ->
+      print_endline (Cosovo.IO.string_of_error_location err);
       exit 1
 
+    | Error (`UnterminatedString line) ->
+      Printf.printf "unterminated quote on line %d\n%!" line;
+      exit 1
 
-let pr_columns out = function
-  | Error err ->
-    print_endline (Cosovo.IO.string_of_error err);
-    exit 1
+    | Ok (header_opt, seq) ->
 
-  | Ok (`Dense dense) ->
-    pr_dense_row out dense
+      let is_column_included =
+        match incl_excl_spec_as_list, header_opt with
+        | _ :: _, Some header ->
+          let num_columns, column_set = column_set_of_dense_header header in
+          included_columns_of_spec num_columns column_set incl_excl_spec_as_list
+        | _, _ ->
+          fun _ -> true
+      in
 
-  | Ok (`Sparse sparse) ->
-    pr_sparse_row out sparse
+      let header_sep =
+        if header_only then
+          "\n"
+        else
+          ","
+      in
+      (* print header *)
+      (
+        match header_opt with
+        | None -> ()
+        | Some header ->
+
+          let _ = List.fold_left (
+            fun (has_prev, j) column_name ->
+              if is_column_included j then (
+
+                if has_prev then
+                  out header_sep;
+                out column_name;
+                true, j + 1
+              )
+              else
+                has_prev, j + 1
+          ) (false, 0) header in
+          out "\n"
+      );
+
+      if not header_only then
+        Seq.iter (pr_subset_of_columns is_column_included out) seq
+
+end
+
+module Complex = struct
+
+  let column_set_of_header = function
+    | `Sparse header ->
+      let num_columns, set = List.fold_left (
+        fun (num_columns, set) (i, name) ->
+          let num_columns = max i num_columns in
+          num_columns, ColumnSet.add (i, name) set
+      ) (0, ColumnSet.empty) header in
+      num_columns + 1, set
+
+    | `Dense header ->
+      column_set_of_dense_header header
+
+  let string_of_value = function
+    | `Int i -> string_of_int i
+    | `Float f -> string_of_float f
+    | `String s -> quote_string s
+
+  let pr_dense_row out row =
+    iter_sep (fun v -> print_string (string_of_value v))
+      (fun () -> out ",") row;
+    out "\n"
+
+  let pr_sparse_row out pairs =
+    out "{";
+    iter_sep (
+      fun (feature_id, v) ->
+        out (string_of_int feature_id);
+        out " ";
+        out (string_of_value v)
+    ) (fun () -> out ",") pairs;
+    out "}\n"
 
 
-let main input_path output_path incl_excl_spec_as_list header_only no_header =
-  let inch =
-    match input_path with
-    | None -> stdin
-    | Some path -> open_in path
-  in
+  let pr_dense_subset_row out row column_included =
+    let _ = List.fold_left (
+      fun (has_prev, index) value ->
+        if column_included index then (
+          if has_prev then
+            out ",";
 
-  let ouch =
-    match output_path with
-    | None -> stdout
-    | Some path -> open_out path
-  in
+          out (string_of_value value);
+          true, index + 1
+        )
+        else
+          has_prev, index + 1
+    ) (false, 0) row in
+    out "\n"
 
-  let out = output_string ouch in
 
-  match Cosovo.IO.of_channel ~no_header inch with
-  | Error (`SyntaxError err) ->
-    print_endline (Cosovo.IO.string_of_error_location err);
-    exit 1
+  let pr_sparse_subset_row out row column_included =
+    out "{";
+    let _ = List.fold_left (
+      fun has_prev (index, value) ->
+        if column_included index then (
+          if has_prev then
+            out ",";
 
-  | Error (`UnterminatedString line) ->
-    Printf.printf "unterminated quote on line %d\n%!" line;
-    exit 1
+          out (string_of_int index);
+          out " ";
+          out (string_of_value value);
+          true
+        )
+        else
+          has_prev
 
-  | Error (`IntOverflow (line, offending_string)) ->
-    Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
-      offending_string line;
-    exit 1
+    ) false row in
+    out "}\n"
 
-  | Ok (header_opt, seq) ->
 
-    let is_column_included =
-      match incl_excl_spec_as_list, header_opt with
-      | _ :: _, Some header ->
-        included_columns_of_spec header incl_excl_spec_as_list
-      | _, _ ->
-        fun _ -> true
+  let pr_subset_of_columns : (int -> bool) -> (string -> unit) -> Cosovo.IO.row_or_error -> unit =
+    fun is_included out -> function
+      | Ok (`Dense dense) ->
+        pr_dense_subset_row out dense is_included
+
+      | Ok (`Sparse sparse) ->
+        pr_sparse_subset_row out sparse is_included
+
+      | Error err ->
+        print_endline (Cosovo.IO.string_of_error err);
+        exit 1
+
+  let run input_path output_path incl_excl_spec_as_list header_only no_header =
+    let inch =
+      match input_path with
+      | None -> stdin
+      | Some path -> open_in path
     in
 
-    let header_sep =
-      if header_only then
-        "\n"
-      else
-        ","
+    let ouch =
+      match output_path with
+      | None -> stdout
+      | Some path -> open_out path
     in
 
-    (* print header *)
-    (
+    let out = output_string ouch in
+
+    match Cosovo.IO.of_channel ~no_header inch with
+    | Error (`SyntaxError err) ->
+      print_endline (Cosovo.IO.string_of_error_location err);
+      exit 1
+
+    | Error (`UnterminatedString line) ->
+      Printf.printf "unterminated quote on line %d\n%!" line;
+      exit 1
+
+    | Error (`IntOverflow (line, offending_string)) ->
+      Printf.printf "value %S on line %d cannot be represented as an integer\n%!"
+        offending_string line;
+      exit 1
+
+    | Ok (header_opt, seq) ->
+
+      let is_column_included =
+        match incl_excl_spec_as_list, header_opt with
+        | _ :: _, Some header ->
+          let num_columns, column_set = column_set_of_header header in
+          included_columns_of_spec num_columns column_set incl_excl_spec_as_list
+        | _, _ ->
+          fun _ -> true
+      in
+
+      let header_sep =
+        if header_only then
+          "\n"
+        else
+          ","
+      in
+
+      (* print header *)
       (
         match header_opt with
         | None -> ()
@@ -282,7 +370,7 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
               else
                 has_prev, j + 1
           ) (false, 0) dense in
-          ()
+          out "\n";
 
         | Some (`Sparse sparse) ->
           let _ = List.fold_left (
@@ -296,13 +384,22 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
               else
                 has_prev
           ) false sparse in
-          ()
+          out "\n"
       );
-      out "\n"
-    );
 
-    if not header_only then
-      Seq.iter (pr_subset_of_columns is_column_included out) seq
+      if not header_only then
+        Seq.iter (pr_subset_of_columns is_column_included out) seq
+
+end
+
+let main input_path output_path incl_excl_spec_as_list header_only no_header do_simple =
+  let f =
+    if do_simple then
+      Simple.run
+    else
+      Complex.run
+  in
+  f input_path output_path incl_excl_spec_as_list header_only no_header
 
 
 open Cmdliner
@@ -339,16 +436,23 @@ let _ =
       Arg.(value & flag & info ["h";"no-header"] ~doc)
     in
 
+    let simple =
+      let doc = "use the simple parser which interprets data elements as
+        strings and rows as dense" in
+      Arg.(value & flag & info ["s";"simple"] ~doc)
+    in
+
     let incl_excl_cmds = Arg.(value & pos_all string [] & info []) in
 
     Term.(pure main
-          $ input_file_path
-          $ output_file_path
-          $ incl_excl_cmds
-          $ header_only
-          $ no_header
-         ), Term.info "csvcat" ~doc
+      $ input_file_path
+      $ output_file_path
+      $ incl_excl_cmds
+      $ header_only
+      $ no_header
+      $ simple
+    ), Term.info "csvcat" ~doc
   in
   match Term.eval ~catch:false command with
-    | `Error _ -> exit 1
-    | _ -> exit 0
+  | `Error _ -> exit 1
+  | _ -> exit 0

@@ -20,9 +20,13 @@ let string_of_error_location {e_line_number; e_start; e_end} =
   Printf.sprintf "error at line %d, characters %d-%d\n" e_line_number
     e_start e_end
 
-type error = [
+type simple_error = [
   | `SyntaxError of error_location
   | `UnterminatedString of int (* line number *)
+]
+
+type error = [
+  | simple_error
   | `IntOverflow of (int * string) (* line number and offending string *)
 ]
 
@@ -34,12 +38,16 @@ type row = [`Sparse of sparse | `Dense of dense ]
 type row_or_error = (row, error) result
 type header = [`Sparse of (int * string) list | `Dense of string list]
 
-let string_of_error = function
+let string_of_simple_error = function
   | `SyntaxError err ->
     Printf.sprintf "syntax error: %s" (string_of_error_location err)
 
   | `UnterminatedString line ->
     Printf.sprintf "unterminated string on line %d" line
+
+let string_of_error = function
+  | #simple_error as se ->
+    string_of_simple_error se
 
   | `IntOverflow (line, offending_string) ->
     Printf.sprintf "value %S on line %d cannot be represented as an integer"
@@ -94,5 +102,36 @@ let row_of_string string =
     Error (`SyntaxError (error_location lexbuf))
   | Lexer.UnterminatedString line ->
     Error (`UnterminatedString line)
-  | Lexer.IntOverflow line_and_offending_string ->
-    Error (`IntOverflow line_and_offending_string)
+
+type simple_row_or_error = (string list, simple_error) result
+type simple_row_seq = simple_row_or_error Seq.t
+
+let simple_of_channel ~no_header ch =
+  let lexbuf = Lexing.from_channel ch in
+  try
+    let h =
+      if not no_header then
+        match Parser.simple_row Lexer.simple_row lexbuf with
+        | `EOF -> None
+        | `SimpleRow r -> Some r
+      else
+        None
+    in
+    let open Seq in
+    let rec row () =
+      try
+        match Parser.simple_row Lexer.simple_row lexbuf with
+        | `EOF -> Nil
+        | `SimpleRow r -> Cons (Ok r, row)
+      with
+      | Parser.Error ->
+        Cons (Error (`SyntaxError (error_location lexbuf)), fun () -> Nil)
+      | Lexer.UnterminatedString line ->
+        Cons (Error (`UnterminatedString line), fun () -> Nil)
+    in
+    Ok (h, row)
+  with
+  | Parser.Error ->
+    Error (`SyntaxError (error_location lexbuf))
+  | Lexer.UnterminatedString line ->
+    Error (`UnterminatedString line)

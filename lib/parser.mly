@@ -17,10 +17,12 @@
 %start header
 %start row
 %start row_sans_nl
+%start simple_row
 
 %type <Types.header option> header
 %type <Types.row> row
 %type <Types.row> row_sans_nl
+%type <Types.simple_row> simple_row
 
 %%
 
@@ -98,3 +100,16 @@ newlines:
 | EOL { () }
 | EOL newlines { () }
 | COMMENT newlines { () }
+
+simple_values:
+| STRING COMMA simple_values { $1 :: $3 }
+| COMMA simple_values { "" :: $2 }
+| STRING COMMA { [ $1; "" ] }
+| STRING { [ $1 ] }
+| COMMA { [""; ""] }
+
+simple_row:
+| simple_values EOL { `SimpleRow $1 }
+| newlines simple_values EOL { `SimpleRow $2 }
+| newlines EOF { `EOF }
+| EOF { `EOF }

@@ -4,3 +4,5 @@ type sparse = (int * value) list
 type row = [ `Dense of dense | `Sparse of sparse | `EOF ]
 type header = [ `Dense of string list | `Sparse of (int * string) list ]
 type opt_row = value option list
+type simple_row = [ `SimpleRow of string list | `EOF ]
+
