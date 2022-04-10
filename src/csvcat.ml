@@ -444,15 +444,14 @@ let _ =
 
     let incl_excl_cmds = Arg.(value & pos_all string [] & info []) in
 
-    Term.(pure main
-      $ input_file_path
-      $ output_file_path
-      $ incl_excl_cmds
-      $ header_only
-      $ no_header
-      $ simple
-    ), Term.info "csvcat" ~doc
+    Cmd.v (Cmd.info "csvcat" ~doc)
+      Term.(const main
+        $ input_file_path
+        $ output_file_path
+        $ incl_excl_cmds
+        $ header_only
+        $ no_header
+        $ simple
+      )
   in
-  match Term.eval ~catch:false command with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+  Cmd.eval ~catch:false command

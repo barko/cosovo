@@ -189,7 +189,6 @@ and double_quoted_string l = parse
   | [^ '"' '\\' ]+
       { double_quoted_string (lexeme lexbuf :: l) lexbuf }
 
-
 and escaped_char = parse
   | '"'
   | '\''
@@ -220,7 +219,7 @@ and simple_row = parse
 
   (* skip whitespace *)
   | [  ' ' '\b' '\t' '\r' '\012' ]+
-      { row lexbuf }
+      { simple_row lexbuf }
 
   | ","
       { COMMA  }
@@ -232,7 +231,7 @@ and simple_row = parse
       { STRING (single_quoted_string [] lexbuf) }
 
   (* unquoted string *)
-  | [^ '\b' '\t' '\r' '\n' '\012' ',' '}' '{' '"' '\'' ]+
+  | [^ '\b' '\t' '\r' '\n' '\012' ',' '}' '{'  '\'' '"' ] [^ ',' '\r' '\n' ]*
       { STRING (lexeme lexbuf) }
 
 
@@ -273,5 +272,11 @@ and simple_row = parse
     with End_of_file ->
       close_in ch
 
+  let tokenize_channel ch  =
+    let lexbuf = Lexing.from_channel ch in
+    try
+      print_row lexbuf
+    with End_of_file ->
+      ()
 
 }
