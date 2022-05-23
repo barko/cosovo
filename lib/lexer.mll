@@ -231,7 +231,7 @@ and simple_row = parse
       { STRING (single_quoted_string [] lexbuf) }
 
   (* unquoted string *)
-  | [^ '\b' '\t' '\r' '\n' '\012' ',' '}' '{'  '\'' '"' ] [^ ',' '\r' '\n' ]*
+  | [^ '\b' '\t' '\r' '\n' '\012' ',' '\'' '"' ] [^ ',' '\r' '\n' ]*
       { STRING (lexeme lexbuf) }
 
 
