@@ -307,48 +307,50 @@ let main input_path output_path incl_excl_spec_as_list header_only no_header =
 
 open Cmdliner
 
-let _ =
-  let command =
-    let doc = "echo a csv file, or a subset of its columns.  To select \
-               a subset, provide an inclusion/exclusion specifier.  A \
-               specifier starts with 'all' or 'none', and proceeds \
-               with pairs: either 'i <regexp>' to include columns matching \
-               a regexp, or 'x <regexp>' to exclude columns matching a \
-               regexp." in
+let cli =
+  let doc = "echo a csv file, or a subset of its columns.  To select \
+             a subset, provide an inclusion/exclusion specifier.  A \
+             specifier starts with 'all' or 'none', and proceeds \
+             with pairs: either 'i <regexp>' to include columns matching \
+             a regexp, or 'x <regexp>' to exclude columns matching a \
+             regexp." in
 
-    let input_file_path =
-      let doc = "path of the input csv file (if absent: stdin)" in
-      Arg.(value & opt (some string) None &
-           info ["i"; "input"] ~docv:"PATH" ~doc)
-    in
-
-    let output_file_path =
-      let doc = "path of output csv file (if absent: stdout)" in
-      Arg.(value & opt (some string) None &
-           info ["o"; "output"] ~docv:"PATH" ~doc)
-    in
-
-    let header_only =
-      let doc = "only echo the elements of the header, one per line" in
-      Arg.(value & flag & info ["H";"header-only"] ~doc)
-    in
-
-    let no_header =
-      let doc = "interpret the first line of the csv file as data, rather
-                 than a header providing names for the fields in file" in
-      Arg.(value & flag & info ["h";"no-header"] ~doc)
-    in
-
-    let incl_excl_cmds = Arg.(value & pos_all string [] & info []) in
-
-    Term.(pure main
-          $ input_file_path
-          $ output_file_path
-          $ incl_excl_cmds
-          $ header_only
-          $ no_header
-         ), Term.info "csvcat" ~doc
+  let input_file_path =
+    let doc = "path of the input csv file (if absent: stdin)" in
+    Arg.(value & opt (some string) None &
+         info ["i"; "input"] ~docv:"PATH" ~doc)
   in
-  match Term.eval ~catch:false command with
-    | `Error _ -> exit 1
-    | _ -> exit 0
+
+  let output_file_path =
+    let doc = "path of output csv file (if absent: stdout)" in
+    Arg.(value & opt (some string) None &
+         info ["o"; "output"] ~docv:"PATH" ~doc)
+  in
+
+  let header_only =
+    let doc = "only echo the elements of the header, one per line" in
+    Arg.(value & flag & info ["H";"header-only"] ~doc)
+  in
+
+  let no_header =
+    let doc = "interpret the first line of the csv file as data, rather
+               than a header providing names for the fields in file" in
+    Arg.(value & flag & info ["h";"no-header"] ~doc)
+  in
+
+  let incl_excl_cmds = Arg.(value & pos_all string [] & info []) in
+
+  let info = Cmd.info "csvcat" ~doc in
+
+  Cmd.v info
+  Term.(const main
+        $ input_file_path
+        $ output_file_path
+        $ incl_excl_cmds
+        $ header_only
+        $ no_header
+       )
+
+let main () = exit @@ Cmdliner.Cmd.eval cli
+
+let () = main ()

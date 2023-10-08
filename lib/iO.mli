@@ -25,6 +25,8 @@ type header = [`Sparse of (int * string) list | `Dense of string list]
 type row_seq = row_or_error Seq.t
 val of_channel : no_header:bool -> in_channel ->
   (header option * row_seq, error) result
+val of_string : no_header:bool -> string ->
+  (header option * row_seq, error) result
 
 val row_of_string : string -> (row, [ error | `EOF ] ) result
 (* parse a single row of a csv file; the string may have trailing

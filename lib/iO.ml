@@ -47,8 +47,7 @@ let string_of_error = function
 
 type row_seq = row_or_error Seq.t
 
-let of_channel ~no_header ch =
-  let lexbuf = Lexing.from_channel ch in
+let of_lexbuf ~no_header lexbuf =
   try
     let h =
       if not no_header then
@@ -81,6 +80,13 @@ let of_channel ~no_header ch =
     | Lexer.IntOverflow line_and_offending_string ->
       Error (`IntOverflow line_and_offending_string)
 
+let of_channel ~no_header ch =
+  let lexbuf = Lexing.from_channel ch in
+  of_lexbuf ~no_header lexbuf
+
+let of_string ~no_header ch =
+  let lexbuf = Lexing.from_string ch in
+  of_lexbuf ~no_header lexbuf
 
 let row_of_string string =
   let lexbuf = Lexing.from_string string in
