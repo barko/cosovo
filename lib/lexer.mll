@@ -128,9 +128,6 @@ rule row = parse
   | '-' positive_int
       { NEG_INT (extract_negative_int lexbuf) }
 
-  | '-' positive_int
-      { NEG_INT (extract_negative_int lexbuf) }
-
   | float
       { float_or_int_of_string (lexeme lexbuf) }
 
